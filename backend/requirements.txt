@@ -1,0 +1,19 @@
+# FastAPI core dependencies
+fastapi==0.95.2
+uvicorn==0.22.0
+python-multipart==0.0.6
+
+# Data handling
+pydantic==1.10.7
+SQLAlchemy==2.0.12
+
+# Document processing
+python-docx==0.8.11
+
+# AI integration
+ollama==0.1.1
+httpx==0.24.0
+
+# Utils
+python-dotenv==1.0.0
+aiofiles==23.1.0

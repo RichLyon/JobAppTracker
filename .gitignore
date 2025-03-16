@@ -1,0 +1,6 @@
+venv
+resumes
+cover_letters
+.env
+.vscode
+job_applications.db

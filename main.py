@@ -45,6 +45,19 @@ def setup_database():
     )
     ''')
     
+    # Create user information table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_information (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        full_name TEXT NOT NULL,
+        address TEXT,
+        phone TEXT,
+        email TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -127,7 +140,14 @@ def create_custom_resume(base_resume_path, job_description, output_path=None):
     doc.save(output_path)
     return output_path, tailoring_suggestions
 
-def generate_cover_letter(job_description, company_name, position, output_path=None):
+def generate_cover_letter(job_description, company_name, position, resume_path, output_path=None):
+    # Extract resume content
+    doc = Document(resume_path)
+    resume_text = "\n".join([paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()])
+    
+    # Get user information
+    user_info = get_user_information()
+    
     # Generate cover letter using Ollama
     prompt = f"""
     Write a professional cover letter for a {position} position at {company_name}.
@@ -135,12 +155,18 @@ def generate_cover_letter(job_description, company_name, position, output_path=N
     Job Description:
     {job_description}
     
+    My Resume:
+    {resume_text}
+    
     The cover letter should:
     1. Be professionally formatted
-    2. Highlight relevant skills and experience
+    2. Highlight relevant skills and experience from my resume that match the job requirements
     3. Show enthusiasm for the role and company
     4. Include a strong opening and closing
     5. Be approximately 300-400 words
+    6. Only mention skills and experience that are actually in my resume
+    7. Specifically mention the company name ({company_name}) and position ({position})
+    8. Reference specific requirements or qualifications from the job description
     
     Write the complete cover letter text, ready to be used.
     """
@@ -150,11 +176,26 @@ def generate_cover_letter(job_description, company_name, position, output_path=N
     # Create a new document
     doc = Document()
     
+    # Add user information at the top if available
+    if user_info["full_name"]:
+        doc.add_paragraph(user_info["full_name"])
+        if user_info["address"]:
+            doc.add_paragraph(user_info["address"])
+        if user_info["phone"]:
+            doc.add_paragraph(user_info["phone"])
+        if user_info["email"]:
+            doc.add_paragraph(user_info["email"])
+    else:
+        doc.add_paragraph("Your Name")
+        doc.add_paragraph("Your Address")
+        doc.add_paragraph("Your Phone")
+        doc.add_paragraph("Your Email")
+    
     # Add date
     doc.add_paragraph(datetime.datetime.now().strftime("%B %d, %Y"))
     doc.add_paragraph()
     
-    # Add company info placeholder
+    # Add company info
     doc.add_paragraph("Hiring Manager")
     doc.add_paragraph(f"{company_name}")
     doc.add_paragraph("Company Address")
@@ -174,9 +215,7 @@ def generate_cover_letter(job_description, company_name, position, output_path=N
     doc.add_paragraph()
     doc.add_paragraph("Sincerely,")
     doc.add_paragraph()
-    doc.add_paragraph("Your Name")
-    doc.add_paragraph("Your Email")
-    doc.add_paragraph("Your Phone")
+    doc.add_paragraph(user_info["full_name"] if user_info["full_name"] else "Your Name")
     
     # Save the cover letter
     if not output_path:
@@ -185,6 +224,47 @@ def generate_cover_letter(job_description, company_name, position, output_path=N
     
     doc.save(output_path)
     return output_path, cover_letter_text
+
+# User information operations
+def save_user_information(full_name, address, phone, email):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Check if user information already exists
+    cursor.execute('SELECT COUNT(*) FROM user_information')
+    count = cursor.fetchone()[0]
+    
+    if count > 0:
+        # Update existing record
+        cursor.execute('''
+        UPDATE user_information
+        SET full_name = ?, address = ?, phone = ?, email = ?, updated_at = ?
+        WHERE id = 1
+        ''', (full_name, address, phone, email, now))
+    else:
+        # Insert new record
+        cursor.execute('''
+        INSERT INTO user_information (
+            full_name, address, phone, email, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (full_name, address, phone, email, now, now))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def get_user_information():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM user_information LIMIT 1')
+    row = cursor.fetchone()
+    
+    conn.close()
+    return dict(row) if row else {"full_name": "", "address": "", "phone": "", "email": ""}
 
 # Database operations
 def add_job_application(company_name, position, date_applied, job_description, status, 
@@ -284,8 +364,83 @@ def delete_job_application(job_id):
     
     return True
 
+# Custom Theme
+def create_custom_theme():
+    return gr.themes.Soft(
+        primary_hue="indigo",
+        secondary_hue="blue",
+        neutral_hue="slate",
+        font=["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+    )
+
 # Gradio UI
 def create_ui():
+    # Set a custom theme
+    theme = create_custom_theme()
+    # CSS for custom styling
+    custom_css = """
+    .gradio-container {
+        max-width: 1200px !important;
+    }
+    
+    h1 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        color: #4f46e5;
+        font-weight: 700;
+        font-size: 2.5rem;
+    }
+    
+    .app-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        gap: 0.5rem;
+    }
+    
+    .app-header svg {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .tab-header {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #4f46e5;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 0.5rem;
+    }
+    
+    .info-box {
+        background-color: #f0f9ff;
+        border-left: 4px solid #3b82f6;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0.375rem;
+    }
+    
+    .success-message {
+        color: #047857;
+        font-weight: 500;
+    }
+    
+    .error-message {
+        color: #b91c1c;
+        font-weight: 500;
+    }
+    
+    .footer {
+        text-align: center;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
+    """
+    
     # Helper function to refresh applications list
     def refresh_applications_list():
         print("Refreshing applications list...")
@@ -327,16 +482,82 @@ def create_ui():
             return None
     
     # Add Job Application Tab
-    with gr.Blocks() as app:
-        gr.Markdown("# Job Application Tracker")
+    with gr.Blocks(theme=theme) as app:
+        with gr.Row(elem_classes="app-header"):
+            gr.Markdown("""
+            <h1>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M4.5 6.375a4.125 4.125 0 118.25 0 4.125 4.125 0 01-8.25 0zM14.25 8.625a3.375 3.375 0 116.75 0 3.375 3.375 0 01-6.75 0zM1.5 19.125a7.125 7.125 0 0114.25 0v.003l-.001.119a.75.75 0 01-.363.63 13.067 13.067 0 01-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 01-.364-.63l-.001-.122zM17.25 19.128l-.001.144a2.25 2.25 0 01-.233.96 10.088 10.088 0 005.06-1.01.75.75 0 00.42-.643 4.875 4.875 0 00-6.957-4.611 8.586 8.586 0 011.71 5.157v.003z" />
+                </svg>
+                Job Application Tracker
+            </h1>
+            """)
         
         # State variables
         base_resume_path = gr.State(None)
         current_job_id = gr.State(None)
         
         with gr.Tabs() as tabs:
-            # Tab 1: Add New Application
-            with gr.TabItem("Add Application"):
+            # Tab 1: User Information
+            with gr.TabItem("User Information", id="user-info-tab"):
+                gr.Markdown('<div class="tab-header">Personal Information</div>')
+                
+                gr.Markdown('<div class="info-box">This information will be used in your cover letters and other application documents.</div>')
+                with gr.Row():
+                    with gr.Column():
+                        user_name = gr.Textbox(label="Full Name")
+                        user_address = gr.Textbox(label="Address", lines=3)
+                    
+                    with gr.Column():
+                        user_phone = gr.Textbox(label="Phone Number")
+                        user_email = gr.Textbox(label="Email Address")
+                
+                with gr.Row():
+                    save_user_btn = gr.Button("Save User Information", variant="primary")
+                    load_user_btn = gr.Button("Load Saved Information", variant="secondary")
+                
+                user_info_result = gr.Textbox(label="Result", interactive=False, elem_classes=["result-box"])
+                
+                # Save user information
+                def save_user_info(name, address, phone, email):
+                    if not name or not email:
+                        return "Please provide at least your name and email address"
+                    
+                    try:
+                        save_user_information(name, address, phone, email)
+                        return "User information saved successfully!"
+                    except Exception as e:
+                        return f"Error saving user information: {str(e)}"
+                
+                # Load user information
+                def load_user_info():
+                    user_info = get_user_information()
+                    return (
+                        user_info.get("full_name", ""),
+                        user_info.get("address", ""),
+                        user_info.get("phone", ""),
+                        user_info.get("email", ""),
+                        "User information loaded successfully!"
+                    )
+                
+                # Connect event handlers
+                save_user_btn.click(
+                    save_user_info,
+                    inputs=[user_name, user_address, user_phone, user_email],
+                    outputs=[user_info_result]
+                )
+                
+                load_user_btn.click(
+                    load_user_info,
+                    inputs=[],
+                    outputs=[user_name, user_address, user_phone, user_email, user_info_result]
+                )
+            
+            # Tab 2: Add New Application
+            with gr.TabItem("Add Application", id="add-app-tab"):
+                gr.Markdown('<div class="tab-header">Add New Job Application</div>')
+                
+                gr.Markdown('<div class="info-box">Track a new job application by filling out the details below.</div>')
                 with gr.Row():
                     with gr.Column():
                         company_input = gr.Textbox(label="Company Name")
@@ -359,10 +580,10 @@ def create_ui():
                     base_resume_upload = gr.File(label="Upload Base Resume (DOCX)")
                     
                 with gr.Row():
-                    add_btn = gr.Button("Add Job Application")
-                    clear_btn = gr.Button("Clear Form")
+                    add_btn = gr.Button("Add Job Application", variant="primary")
+                    clear_btn = gr.Button("Clear Form", variant="secondary")
                 
-                result_text = gr.Textbox(label="Result", interactive=False)
+                result_text = gr.Textbox(label="Result", interactive=False, elem_classes=["result-box"])
                 
                 # Add job application function
                 def add_application(company, position, date, job_desc, status, salary, contact, url, notes, resume_file, resume_path_state):
@@ -416,10 +637,13 @@ def create_ui():
                     ]
                 )
             
-            # Tab 2: View/Edit Applications
-            with gr.TabItem("View Applications"):
+            # Tab 3: View/Edit Applications
+            with gr.TabItem("View Applications", id="view-app-tab"):
+                gr.Markdown('<div class="tab-header">Manage Job Applications</div>')
+                
+                gr.Markdown('<div class="info-box">View, edit, or delete your existing job applications.</div>')
                 with gr.Row():
-                    refresh_btn = gr.Button("Refresh List")
+                    refresh_btn = gr.Button("Refresh List", variant="primary", size="sm")
                 
                 applications_table = gr.DataFrame(
                     headers=['ID', 'Company', 'Position', 'Date Applied', 'Status'],
@@ -429,8 +653,8 @@ def create_ui():
                 
                 with gr.Row():
                     selected_id_input = gr.Number(label="Selected Job ID", precision=0)
-                    load_btn = gr.Button("Load Application")
-                    delete_btn = gr.Button("Delete Application")
+                    load_btn = gr.Button("Load Application", variant="primary", size="sm")
+                    delete_btn = gr.Button("Delete Application", variant="stop", size="sm")
                 
                 with gr.Row():
                     with gr.Column():
@@ -450,9 +674,9 @@ def create_ui():
                         edit_notes = gr.Textbox(label="Notes", lines=3)
                 
                 with gr.Row():
-                    update_btn = gr.Button("Update Application")
+                    update_btn = gr.Button("Update Application", variant="primary")
                 
-                edit_result = gr.Textbox(label="Result", interactive=False)
+                edit_result = gr.Textbox(label="Result", interactive=False, elem_classes=["result-box"])
                 
                 # Load applications on refresh
                 def load_applications():
@@ -543,12 +767,15 @@ def create_ui():
                     outputs=[edit_result, current_job_id]
                 )
             
-            # Tab 3: Resume Customization
-            with gr.TabItem("Customize Resume"):
+            # Tab 4: Resume Customization
+            with gr.TabItem("Customize Resume", id="resume-tab"):
+                gr.Markdown('<div class="tab-header">Resume Customization</div>')
+                
+                gr.Markdown('<div class="info-box">Tailor your resume to match the job description using AI assistance.</div>')
                 with gr.Row():
                     with gr.Column():
                         resume_job_id = gr.Number(label="Job ID (Optional)", precision=0)
-                        load_job_btn = gr.Button("Load Job Details")
+                        load_job_btn = gr.Button("Load Job Details", variant="primary", size="sm")
                     
                     with gr.Column():
                         resume_upload = gr.File(label="Upload Resume (DOCX)")
@@ -557,7 +784,7 @@ def create_ui():
                 resume_job_position = gr.Textbox(label="Position", interactive=False)
                 resume_job_desc = gr.Textbox(label="Job Description", lines=10)
                 
-                customize_btn = gr.Button("Customize Resume")
+                customize_btn = gr.Button("Customize Resume", variant="primary")
                 
                 with gr.Row():
                     resume_result = gr.Textbox(label="Customization Result", interactive=False)
@@ -612,18 +839,25 @@ def create_ui():
                     outputs=[resume_result, resume_download, base_resume_path]
                 )
             
-            # Tab 4: Cover Letter Generation
-            with gr.TabItem("Generate Cover Letter"):
+            # Tab 5: Cover Letter Generation
+            with gr.TabItem("Generate Cover Letter", id="cover-letter-tab"):
+                gr.Markdown('<div class="tab-header">Cover Letter Generation</div>')
+                
+                gr.Markdown('<div class="info-box">Generate a professional cover letter tailored to the job description using AI.</div>')
                 with gr.Row():
                     with gr.Column():
                         cl_job_id = gr.Number(label="Job ID (Optional)", precision=0)
-                        cl_load_job_btn = gr.Button("Load Job Details")
+                        cl_load_job_btn = gr.Button("Load Job Details", variant="primary", size="sm")
+                    
+                    with gr.Column():
+                        cl_resume_upload = gr.File(label="Upload Resume (DOCX) *Required*")
                 
                 cl_company = gr.Textbox(label="Company Name")
                 cl_position = gr.Textbox(label="Position")
                 cl_job_desc = gr.Textbox(label="Job Description", lines=10)
+                cl_resume_path = gr.State(None)  # Hidden state to store resume path
                 
-                generate_cl_btn = gr.Button("Generate Cover Letter")
+                generate_cl_btn = gr.Button("Generate Cover Letter", variant="primary")
                 
                 with gr.Row():
                     cl_result = gr.Textbox(label="Generated Cover Letter Preview", lines=10, interactive=False)
@@ -632,40 +866,63 @@ def create_ui():
                 # Load job details for cover letter
                 def load_job_for_cl(job_id):
                     if not job_id:
-                        return "Please enter a valid Job ID", "", "", ""
+                        return "Please enter a valid Job ID", "", "", "", None
                     
                     application = get_job_application(int(job_id))
                     if not application:
-                        return "Job application not found", "", "", ""
+                        return "Job application not found", "", "", "", None
+                    
+                    # Get resume path if available
+                    resume_path = application.get("resume_path")
+                    resume_message = ""
+                    if resume_path and os.path.exists(resume_path):
+                        resume_message = f" (Resume found: {os.path.basename(resume_path)})"
+                    else:
+                        resume_path = None
+                        resume_message = " (No resume found, please upload one)"
                     
                     return (
-                        f"Loaded job details for {application['company_name']}",
+                        f"Loaded job details for {application['company_name']}{resume_message}",
                         application["company_name"],
                         application["position"],
-                        application["job_description"] or ""
+                        application["job_description"] or "",
+                        resume_path
                     )
                 
                 # Generate cover letter
-                def generate_cover_letter_handler(company, position, job_desc):
+                def generate_cover_letter_handler(company, position, job_desc, resume_file, resume_path_state):
                     if not company or not position or not job_desc:
-                        return "Please fill in all fields", None
+                        return "Please fill in all fields", None, resume_path_state
                     
-                    output_path, cover_letter_text = generate_cover_letter(job_desc, company, position)
+                    # Determine which resume to use
+                    resume_path = None
+                    if resume_file:
+                        resume_path = save_uploaded_resume(resume_file)
+                        resume_path_state = resume_path
+                    elif resume_path_state:
+                        resume_path = resume_path_state
+                    else:
+                        return "Please upload a resume or load a job with an existing resume", None, resume_path_state
                     
-                    return cover_letter_text, output_path
+                    output_path, cover_letter_text = generate_cover_letter(job_desc, company, position, resume_path)
+                    
+                    return cover_letter_text, output_path, resume_path_state
                 
                 # Connect event handlers
                 cl_load_job_btn.click(
                     load_job_for_cl,
                     inputs=[cl_job_id],
-                    outputs=[cl_result, cl_company, cl_position, cl_job_desc]
+                    outputs=[cl_result, cl_company, cl_position, cl_job_desc, cl_resume_path]
                 )
                 
                 generate_cl_btn.click(
                     generate_cover_letter_handler,
-                    inputs=[cl_company, cl_position, cl_job_desc],
-                    outputs=[cl_result, cl_download]
+                    inputs=[cl_company, cl_position, cl_job_desc, cl_resume_upload, cl_resume_path],
+                    outputs=[cl_result, cl_download, cl_resume_path]
                 )
+        
+        # Footer
+        gr.Markdown('<div class="footer">Job Application Tracker - Helping you organize your job search</div>')
         
         # Initialize the database on startup
         def init_app():
@@ -679,7 +936,9 @@ def create_ui():
 # Main function
 def main():
     app = create_ui()
-    app.launch()
+    app.launch(
+        share=False,
+    )
 
 if __name__ == "__main__":
     main()

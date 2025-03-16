@@ -1,93 +1,144 @@
 # Job Application Tracker
 
-A Python application with a Gradio interface that helps you track job applications, customize resumes, and generate cover letters based on job descriptions.
+A comprehensive web application for tracking job applications, customizing resumes, and generating cover letters with AI assistance. This application helps job seekers manage their job search process more efficiently.
 
-## Features
+## Project Overview
 
-- **Job Application Tracking**: Store and manage all your job applications in one place
-- **Status Updates**: Track the status of each application (Applied, Interviewing, Rejected, etc.)
-- **Resume Customization**: Tailor your resume to specific job descriptions using AI
-- **Cover Letter Generation**: Create customized cover letters for each job application
-- **Local AI Integration**: Uses Ollama for AI-powered text generation, keeping your data private
+The Job Application Tracker allows users to:
 
-## Requirements
+- Track job applications with detailed information (company, position, status, etc.)
+- Customize resumes based on job descriptions using AI
+- Generate cover letters tailored to specific jobs
+- Visualize job search progress with dashboard analytics
+- Manage user profile information for documents
 
-- Python 3.8+
-- Ollama (for AI-powered resume customization and cover letter generation)
-- A base resume in DOCX format
+## Architecture
 
-## Installation
+This application uses a modern React frontend with a FastAPI backend architecture:
 
-1. Clone this repository or download the files
-2. Install the required Python packages:
+### Frontend (React)
+- Built with React 18 using functional components and hooks
+- Material UI for consistent, responsive UI components
+- React Query for efficient data fetching and caching
+- React Router for navigation
+- Chart.js for data visualization
 
-```bash
-pip install gradio python-docx pandas requests
+### Backend (FastAPI)
+- FastAPI for high-performance API endpoints
+- SQLite for database (can be easily scaled to other databases)
+- Python libraries for document handling (python-docx)
+- Integration with Ollama for AI-powered resume customization and cover letter generation
+
+## Project Structure
+
+```
+├── backend/               # FastAPI backend
+│   ├── app/               # Application code
+│   │   ├── ai_integration.py   # AI service integration (Ollama)
+│   │   ├── database.py    # Database functions
+│   │   ├── document_handlers.py # Resume and cover letter generation
+│   │   ├── file_handler.py # File upload/download helpers
+│   │   ├── main.py        # FastAPI app and routes
+│   │   └── models.py      # Pydantic models
+│   └── requirements.txt   # Python dependencies
+├── frontend/              # React frontend
+│   ├── public/            # Public assets
+│   ├── src/               # Source code
+│   │   ├── components/    # Reusable UI components
+│   │   │   └── layout/    # Layout components
+│   │   ├── pages/         # Page components
+│   │   ├── services/      # API services
+│   │   ├── App.js         # Main App component
+│   │   ├── index.js       # Entry point
+│   │   └── theme.js       # Material UI theming
+│   └── package.json       # JavaScript dependencies
+├── resumes/               # Directory for stored resumes
+├── cover_letters/         # Directory for generated cover letters
+└── README.md              # Project documentation
 ```
 
-3. Install and set up Ollama:
-   - Visit [Ollama's website](https://ollama.ai/) to download and install
-   - Run Ollama and pull the llama3 model:
-   ```bash
-   ollama pull llama3
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v14+)
+- Python (v3.8+)
+- Ollama (optional, for AI features)
+
+### Installation
+
+#### Backend Setup
+
+1. Navigate to the backend directory:
+   ```
+   cd backend
    ```
 
-## Usage
+2. Create and activate a virtual environment (recommended):
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-1. Run the application:
+3. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
-```bash
-python main.py
-```
+4. Run the FastAPI server:
+   ```
+   uvicorn app.main:app --reload
+   ```
 
-2. Open your web browser and navigate to http://127.0.0.1:7860
+The backend will start on http://localhost:8000 with API documentation available at http://localhost:8000/docs
 
-3. Use the different tabs to:
-   - Add new job applications
-   - View and edit existing applications
-   - Customize your resume for specific job descriptions
-   - Generate cover letters
+#### Frontend Setup
 
-## Tabs and Features
+1. Navigate to the frontend directory:
+   ```
+   cd frontend
+   ```
 
-### Add Application
+2. Install dependencies:
+   ```
+   npm install
+   ```
 
-- Enter job details including company name, position, date applied, etc.
-- Upload your base resume (DOCX format)
-- Add job description and any notes
+3. Start the development server:
+   ```
+   npm start
+   ```
 
-### View Applications
+The React app will start on http://localhost:3000
 
-- See all your job applications in a table
-- Edit application details
-- Update application status
-- Delete applications
+## API Endpoints
 
-### Customize Resume
+The application exposes the following key API endpoints:
 
-- Select a job from your applications or enter a new job description
-- Upload your resume (or use the one you've already uploaded)
-- Get AI-powered suggestions for tailoring your resume to the job
-- Download the customized resume
+- `GET /api/health` - API health check
+- `GET/POST /api/user` - Manage user information
+- `GET/POST/PUT/DELETE /api/applications` - Manage job applications
+- `POST /api/resumes/customize` - Customize a resume for a job
+- `POST /api/cover-letters/generate` - Generate a cover letter
 
-### Generate Cover Letter
+## Refactoring from Gradio to React
 
-- Select a job from your applications or enter new job details
-- Generate a professional cover letter tailored to the job description
-- Preview the cover letter text
-- Download the cover letter as a DOCX file
+This application was originally built using Gradio, a Python library for creating simple web interfaces. The refactoring to React + FastAPI provides several advantages:
 
-## Data Storage
+1. **Improved User Experience**: Better UI/UX with Material UI components and responsive design
+2. **Enhanced Performance**: Client-side rendering for smoother interactions
+3. **Better State Management**: More sophisticated state management with React hooks and React Query
+4. **Scalability**: Separated frontend and backend architecture allows for independent scaling
+5. **Maintainability**: Better code organization with component-based architecture
 
-- All job application data is stored in a local SQLite database (`job_applications.db`)
-- Resumes and cover letters are saved in the `resumes` and `cover_letters` folders
+The refactoring involved:
 
-## Troubleshooting
-
-- **Ollama Connection Issues**: Make sure Ollama is running before using the resume customization or cover letter generation features
-- **File Upload Problems**: Ensure your resume is in DOCX format
-- **Database Errors**: If you encounter database issues, try restarting the application
+1. Creating a FastAPI backend with endpoints corresponding to the original Gradio functionality
+2. Developing a React frontend with Material UI for a more polished interface
+3. Implementing client-side routing for better navigation
+4. Adding data visualization for analytics on the dashboard
+5. Enhancing the resume and cover letter generation features
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is licensed under the terms of the LICENSE file included in the repository.
