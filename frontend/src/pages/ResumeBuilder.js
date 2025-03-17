@@ -143,9 +143,19 @@ const ResumeBuilder = () => {
             requestData.job_id = parseInt(jobId);
         }
 
+        // Log debugging information
+        console.log('Resume customization form submission:');
+        console.log('- Job ID:', jobId);
+        console.log('- Job description length:', jobDescription?.length);
+        console.log('- Resume file:', resumeFile ? resumeFile.name : 'None');
+        console.log('- Resume file name:', resumeFileName);
+        console.log('- Application resume path:', application?.resume_path);
+        console.log('- Request data:', requestData);
+
         try {
             // If a new resume was uploaded, customize with the new file
             if (resumeFile) {
+                console.log('Using newly uploaded resume file');
                 await customizeMutation.mutateAsync({
                     data: requestData,
                     file: resumeFile
@@ -153,12 +163,18 @@ const ResumeBuilder = () => {
             }
             // Otherwise try to use existing resume if available
             else if (application?.resume_path || resumeFileName) {
+                console.log('Using existing resume path from application');
+                if (application?.resume_path) {
+                    // Add the resume path to the request data
+                    requestData.resume_path = application.resume_path;
+                }
                 await customizeMutation.mutateAsync({
                     data: requestData
                 });
             }
             // No resume available
             else {
+                console.log('No resume available');
                 setNotification({
                     open: true,
                     message: 'Please upload a resume',
@@ -166,6 +182,7 @@ const ResumeBuilder = () => {
                 });
             }
         } catch (error) {
+            console.error('Resume customization error:', error);
             // Error handled in mutation
         }
     };
@@ -176,6 +193,11 @@ const ResumeBuilder = () => {
             const filename = customizedResumePath.split('/').pop();
             const downloadUrl = getDocumentUrl('resumes', filename);
 
+            console.log('Downloading customized resume:');
+            console.log('- Resume path:', customizedResumePath);
+            console.log('- Extracted filename:', filename);
+            console.log('- Download URL:', downloadUrl);
+
             // Create a temporary link element and trigger download
             const link = document.createElement('a');
             link.href = downloadUrl;
@@ -183,6 +205,8 @@ const ResumeBuilder = () => {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        } else {
+            console.error('No resume path available for download');
         }
     };
 

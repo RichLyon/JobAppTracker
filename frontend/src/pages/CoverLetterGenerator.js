@@ -173,9 +173,21 @@ const CoverLetterGenerator = () => {
             requestData.job_id = parseInt(jobId);
         }
 
+        // Log debugging information
+        console.log('Cover letter generation form submission:');
+        console.log('- Job ID:', jobId);
+        console.log('- Company name:', companyName);
+        console.log('- Position:', position);
+        console.log('- Job description length:', jobDescription?.length);
+        console.log('- Resume file:', resumeFile ? resumeFile.name : 'None');
+        console.log('- Resume file name:', resumeFileName);
+        console.log('- Application resume path:', application?.resume_path);
+        console.log('- Request data:', requestData);
+
         try {
             // If a new resume was uploaded, generate with the new file
             if (resumeFile) {
+                console.log('Using newly uploaded resume file');
                 await generateMutation.mutateAsync({
                     data: requestData,
                     file: resumeFile
@@ -183,12 +195,18 @@ const CoverLetterGenerator = () => {
             }
             // Otherwise try to use existing resume if available
             else if (application?.resume_path || resumeFileName) {
+                console.log('Using existing resume path from application');
+                if (application?.resume_path) {
+                    // Add the resume path to the request data
+                    requestData.resume_path = application.resume_path;
+                }
                 await generateMutation.mutateAsync({
                     data: requestData
                 });
             }
             // No resume available
             else {
+                console.log('No resume available');
                 setNotification({
                     open: true,
                     message: 'Please upload a resume',
@@ -196,6 +214,7 @@ const CoverLetterGenerator = () => {
                 });
             }
         } catch (error) {
+            console.error('Cover letter generation error:', error);
             // Error handled in mutation
         }
     };
@@ -206,6 +225,11 @@ const CoverLetterGenerator = () => {
             const filename = coverLetterPath.split('/').pop();
             const downloadUrl = getDocumentUrl('cover-letters', filename);
 
+            console.log('Downloading cover letter:');
+            console.log('- Cover letter path:', coverLetterPath);
+            console.log('- Extracted filename:', filename);
+            console.log('- Download URL:', downloadUrl);
+
             // Create a temporary link element and trigger download
             const link = document.createElement('a');
             link.href = downloadUrl;
@@ -213,6 +237,8 @@ const CoverLetterGenerator = () => {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        } else {
+            console.error('No cover letter path available for download');
         }
     };
 

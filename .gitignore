@@ -4,3 +4,5 @@ cover_letters
 .env
 .vscode
 job_applications.db
+frontend/node_modules
+memory-bank

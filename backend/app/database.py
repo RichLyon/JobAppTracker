@@ -205,4 +205,18 @@ def get_user_information():
         cursor.execute('SELECT * FROM user_information LIMIT 1')
         row = cursor.fetchone()
         
-        return dict(row) if row else {"full_name": "", "address": "", "phone": "", "email": ""}
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        if row:
+            return dict(row)
+        else:
+            # Return a default user info with required fields for the User model
+            return {
+                "id": 0,
+                "full_name": "", 
+                "address": "", 
+                "phone": "", 
+                "email": "",
+                "created_at": now,
+                "updated_at": now
+            }

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Dict, Literal
 from datetime import datetime
 
 # Helper function to get current timestamp
@@ -67,12 +67,14 @@ class JobApplication(JobApplicationBase):
 class ResumeCustomizationRequest(BaseModel):
     job_id: Optional[int] = None
     job_description: Optional[str] = None
+    resume_path: Optional[str] = None
 
 class CoverLetterGenerationRequest(BaseModel):
     job_id: Optional[int] = None
     company_name: Optional[str] = None
     position: Optional[str] = None
     job_description: Optional[str] = None
+    resume_path: Optional[str] = None
 
 class DocumentResponse(BaseModel):
     document_path: str
@@ -86,3 +88,29 @@ class JobApplicationStatistics(BaseModel):
     status_counts: dict
     recent_applications: List[JobApplication]
     applications_by_month: dict
+
+# LLM Settings Models
+class LLMSettingsUpdate(BaseModel):
+    """Model for updating LLM provider settings"""
+    provider: Optional[Literal["ollama", "openai", "anthropic"]] = None
+    openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    openai_model: Optional[str] = None
+    anthropic_model: Optional[str] = None
+    ollama_model: Optional[str] = None
+
+class LLMSettingsResponse(BaseModel):
+    """Model for returning current LLM settings"""
+    provider: str
+    models: Dict[str, str]
+    api_keys: Dict[str, bool]  # Just returns whether keys are set, not the actual keys
+
+class LLMAvailabilityCheckRequest(BaseModel):
+    """Model for checking the availability of a specific LLM provider"""
+    provider: Literal["ollama", "openai", "anthropic"]
+
+class LLMAvailabilityResponse(BaseModel):
+    """Model for returning availability check results"""
+    provider: str
+    available: bool
+    error: Optional[str] = None

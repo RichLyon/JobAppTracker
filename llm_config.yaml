@@ -1,0 +1,32 @@
+# LLM Model Configuration
+
+# Default providers and models
+default_provider: "ollama"
+
+# Models for each provider
+models:
+  ollama: "qwen2.5:14b"
+  openai: "gpt-4o"
+  anthropic: "claude-3-5-sonnet-latest"
+
+# Available model options for each provider
+available_models:
+  ollama:
+    - "qwen2.5:14b"
+    - "llama3:70b"
+    - "llama3:8b"
+    - "mistral:7b"
+    - "mixtral:8x7b"
+    - "neural-chat"
+  openai:
+    - "gpt-4o-mini"
+    - "gpt-4o"
+  anthropic:
+    - "claude-3-5-haiku-latest"
+    - "claude-3-5-sonnet-latest"
+    - "claude-3-7-sonnet-latest"
+
+# API configuration
+api:
+  ollama:
+    url: "http://localhost:11434/api/generate"

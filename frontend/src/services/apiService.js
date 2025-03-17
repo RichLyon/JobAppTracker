@@ -19,14 +19,48 @@ export const checkApiHealth = async () => {
     }
 };
 
-// Check if Ollama is available
+// LLM Service endpoints
 export const checkOllamaStatus = async () => {
     try {
-        const response = await api.get('/ai/status');
+        const response = await api.get('/ollama/status');
         return response.data;
     } catch (error) {
         console.error('Ollama status check failed:', error);
         return { status: 'unavailable' };
+    }
+};
+
+export const getLLMSettings = async () => {
+    try {
+        const response = await api.get('/llm/settings');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching LLM settings:', error);
+        throw error;
+    }
+};
+
+export const updateLLMSettings = async (settings) => {
+    try {
+        const response = await api.post('/llm/settings', settings);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating LLM settings:', error);
+        throw error;
+    }
+};
+
+export const checkLLMAvailability = async (provider) => {
+    try {
+        const response = await api.post('/llm/check-availability', { provider });
+        return response.data;
+    } catch (error) {
+        console.error(`Error checking ${provider} availability:`, error);
+        return {
+            provider: provider,
+            available: false,
+            error: error.message
+        };
     }
 };
 
@@ -68,14 +102,14 @@ export const deleteApplication = async (id) => {
 };
 
 export const getApplicationStatistics = async () => {
-    const response = await api.get('/applications/statistics');
+    const response = await api.get('/applications/stats/summary');
     return response.data;
 };
 
 // File upload operations
 export const uploadResume = async (file) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('resume', file);  // Changed from 'file' to 'resume' to match backend expectation
 
     const response = await api.post('/resumes/upload', formData, {
         headers: {
@@ -88,52 +122,97 @@ export const uploadResume = async (file) => {
 
 // Document URL helper
 export const getDocumentUrl = (type, filename) => {
-    return `${api.defaults.baseURL}/${type}/${filename}`;
+    // URL paths should match the backend endpoints
+    // Types: 'resumes' or 'cover-letters'
+    return `${api.defaults.baseURL}/${type}/${encodeURIComponent(filename)}`;
 };
 
 // Resume customization
 export const customizeResume = async ({ data, file }) => {
-    // If file is provided, first upload it
-    let resumePath = null;
+    try {
+        // Log the customization request for debugging
+        console.log('Resume customization request initiated:', data);
 
-    if (file) {
-        const uploadResponse = await uploadResume(file);
-        resumePath = uploadResponse.path;
+        if (file) {
+            // When a file is provided, we need to use FormData
+            const formData = new FormData();
+
+            // Add the file with the correct field name that matches backend parameter
+            formData.append('resume', file);
+
+            // Add all other data fields to the FormData
+            Object.entries(data).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    formData.append(key, value);
+                }
+            });
+
+            console.log('Sending resume customization with file upload');
+
+            const response = await api.post('/resumes/customize', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            return response.data;
+        } else {
+            // No file, just send the JSON data
+            console.log('Sending resume customization without file upload:', data);
+            const response = await api.post('/resumes/customize', data);
+            return response.data;
+        }
+    } catch (error) {
+        console.error('Customize resume error details:', error.response?.data || error.message);
+        throw error;
     }
-
-    // Add resume path to the request if available
-    const requestData = {
-        ...data,
-        ...(resumePath && { resume_path: resumePath }),
-    };
-
-    const response = await api.post('/resumes/customize', requestData);
-    return response.data;
 };
 
 // Cover letter generation
 export const generateCoverLetter = async ({ data, file }) => {
-    // If file is provided, first upload it
-    let resumePath = null;
+    try {
+        // Log the generation request for debugging
+        console.log('Cover letter generation request initiated:', data);
 
-    if (file) {
-        const uploadResponse = await uploadResume(file);
-        resumePath = uploadResponse.path;
+        if (file) {
+            // When a file is provided, we need to use FormData
+            const formData = new FormData();
+
+            // Add the file with the correct field name that matches backend parameter
+            formData.append('resume', file);
+
+            // Add all other data fields to the FormData
+            Object.entries(data).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    formData.append(key, value);
+                }
+            });
+
+            console.log('Sending cover letter generation with file upload');
+
+            const response = await api.post('/cover-letters/generate', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            return response.data;
+        } else {
+            // No file, just send the JSON data
+            console.log('Sending cover letter generation without file upload:', data);
+            const response = await api.post('/cover-letters/generate', data);
+            return response.data;
+        }
+    } catch (error) {
+        console.error('Cover letter generation error details:', error.response?.data || error.message);
+        throw error;
     }
-
-    // Add resume path to the request if available
-    const requestData = {
-        ...data,
-        ...(resumePath && { resume_path: resumePath }),
-    };
-
-    const response = await api.post('/cover-letters/generate', requestData);
-    return response.data;
 };
 
 export default {
     checkApiHealth,
     checkOllamaStatus,
+    getLLMSettings,
+    updateLLMSettings,
+    checkLLMAvailability,
     getUserInfo,
     updateUserInfo,
     getApplications,

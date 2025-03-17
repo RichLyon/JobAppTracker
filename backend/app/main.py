@@ -26,10 +26,19 @@ from app.models import (
     CoverLetterGenerationRequest, 
     DocumentResponse,
     StatusUpdateRequest,
-    JobApplicationStatistics
+    JobApplicationStatistics,
+    LLMSettingsUpdate,
+    LLMSettingsResponse,
+    LLMAvailabilityCheckRequest,
+    LLMAvailabilityResponse
 )
 from app.file_handler import save_uploaded_file, RESUME_FOLDER, COVER_LETTER_FOLDER
-from app.ai_integration import check_ollama_availability
+from app.ai_integration import (
+    check_ollama_availability,
+    check_provider_availability,
+    llm_settings
+)
+from app.utils import update_env_file
 from app.document_handlers import create_custom_resume, create_cover_letter
 
 # Create FastAPI app
@@ -59,7 +68,7 @@ async def health_check():
     """Check if the API is running"""
     return {"status": "ok", "timestamp": datetime.datetime.now().isoformat()}
 
-# AI service check endpoint
+# AI service status endpoints
 @app.get("/api/ollama/status")
 async def ollama_status():
     """Check if Ollama is available"""
@@ -68,6 +77,54 @@ async def ollama_status():
         return {"status": "available"}
     else:
         return {"status": "unavailable", "error": error}
+
+@app.get("/api/llm/settings", response_model=LLMSettingsResponse)
+async def get_llm_settings():
+    """Get current LLM settings"""
+    return llm_settings.get_settings()
+
+@app.post("/api/llm/settings", response_model=LLMSettingsResponse)
+async def update_llm_settings(settings: LLMSettingsUpdate):
+    """Update LLM settings"""
+    # Extract settings from the request
+    update_args = {}
+    
+    # Only include non-None values
+    if settings.provider is not None:
+        update_args["provider"] = settings.provider
+    if settings.openai_api_key is not None:
+        update_args["openai_api_key"] = settings.openai_api_key
+    if settings.anthropic_api_key is not None:
+        update_args["anthropic_api_key"] = settings.anthropic_api_key
+    if settings.openai_model is not None:
+        update_args["openai_model"] = settings.openai_model
+    if settings.anthropic_model is not None:
+        update_args["anthropic_model"] = settings.anthropic_model
+    if settings.ollama_model is not None:
+        update_args["ollama_model"] = settings.ollama_model
+    
+    # Update settings in memory
+    llm_settings.update_settings(**update_args)
+    
+    # Save API keys to .env file if provided
+    if settings.openai_api_key is not None or settings.anthropic_api_key is not None:
+        update_env_file(
+            openai_api_key=settings.openai_api_key if settings.openai_api_key is not None else None,
+            anthropic_api_key=settings.anthropic_api_key if settings.anthropic_api_key is not None else None
+        )
+    
+    # Return updated settings
+    return llm_settings.get_settings()
+
+@app.post("/api/llm/check-availability", response_model=LLMAvailabilityResponse)
+async def check_llm_availability(request: LLMAvailabilityCheckRequest):
+    """Check if a specific LLM provider is available"""
+    available, error = check_provider_availability(request.provider)
+    return {
+        "provider": request.provider,
+        "available": available,
+        "error": error if not available else None
+    }
 
 # User Information Endpoints
 @app.post("/api/user", response_model=User)
@@ -196,36 +253,69 @@ async def upload_resume(resume: UploadFile = File(...)):
     return {"filename": os.path.basename(filepath), "path": filepath}
 
 @app.post("/api/resumes/customize", response_model=DocumentResponse)
-async def customize_resume(request: ResumeCustomizationRequest, resume: Optional[UploadFile] = None):
+async def customize_resume(
+    resume: Optional[UploadFile] = File(None),
+    job_id: Optional[int] = Form(None),
+    job_description: Optional[str] = Form(None),
+    resume_path: Optional[str] = Form(None),
+    company_name: Optional[str] = Form(None),
+    position: Optional[str] = Form(None)
+):
     """Customize a resume based on job description"""
-    # Check if we have the necessary data
-    if not request.job_description and not request.job_id:
-        raise HTTPException(status_code=400, detail="Either job_id or job_description is required")
-    
-    # Get job details if job_id is provided
-    if request.job_id:
-        job = get_job_application(request.job_id)
-        job_description = job["job_description"]
-        # Use the resume associated with the job if available
-        resume_path = job.get("resume_path")
-    else:
-        job_description = request.job_description
-        resume_path = None
-    
-    # If a new resume was uploaded, use that
-    if resume:
-        resume_path = await save_uploaded_file(resume, RESUME_FOLDER)
-    
-    if not resume_path:
-        raise HTTPException(status_code=400, detail="No resume provided. Please upload a resume.")
-    
-    # Create the customized resume
-    output_path, suggestions = create_custom_resume(resume_path, job_description)
-    
-    return {
-        "document_path": output_path,
-        "content_preview": suggestions
-    }
+    try:
+        # Log incoming request data for debugging
+        print(f"DEBUG - Customize Resume Request Parameters:")
+        print(f"  job_id: {job_id}")
+        print(f"  job_description length: {len(job_description) if job_description else 0}")
+        print(f"  resume_path: {resume_path}")
+        print(f"  Resume file provided: {resume is not None}")
+        print(f"  company_name: {company_name}")
+        print(f"  position: {position}")
+        
+        # Check if we have the necessary data
+        if not job_description and not job_id:
+            raise HTTPException(status_code=400, detail="Either job_id or job_description is required")
+        
+        # Get job details if job_id is provided
+        if job_id:
+            job = get_job_application(job_id)
+            job_description = job["job_description"]
+            # Use job details for company/position if not explicitly provided
+            if not company_name:
+                company_name = job["company_name"]
+            if not position:
+                position = job["position"]
+            # Use the resume associated with the job if available and no new resume provided
+            if not resume and not resume_path:
+                resume_path = job.get("resume_path")
+        
+        # If a new resume was uploaded, use that
+        if resume:
+            print(f"DEBUG - Processing uploaded resume file: {resume.filename}")
+            resume_path = await save_uploaded_file(resume, RESUME_FOLDER)
+            print(f"DEBUG - Resume saved to: {resume_path}")
+        
+        if not resume_path:
+            raise HTTPException(status_code=400, detail="No resume provided. Please upload a resume.")
+        
+        # Create the customized resume
+        print(f"DEBUG - Creating custom resume with path: {resume_path}")
+        output_path, suggestions = create_custom_resume(
+            resume_path, 
+            job_description, 
+            company_name, 
+            position
+        )
+        
+        return {
+            "document_path": output_path,
+            "content_preview": suggestions
+        }
+    except Exception as e:
+        print(f"ERROR - Exception in customize_resume: {str(e)}")
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Error customizing resume: {str(e)}")
 
 @app.get("/api/resumes/{filename}")
 async def download_resume(filename: str):
@@ -238,51 +328,68 @@ async def download_resume(filename: str):
 # Cover Letter Endpoints
 @app.post("/api/cover-letters/generate", response_model=DocumentResponse)
 async def generate_cover_letter_endpoint(
-    request: CoverLetterGenerationRequest,
-    resume: Optional[UploadFile] = None
+    resume: Optional[UploadFile] = File(None),
+    job_id: Optional[int] = Form(None),
+    company_name: Optional[str] = Form(None),
+    position: Optional[str] = Form(None),
+    job_description: Optional[str] = Form(None),
+    resume_path: Optional[str] = Form(None)
 ):
     """Generate a cover letter based on job details and resume"""
-    # Check if we have the necessary data
-    if not request.job_id and (not request.company_name or not request.position or not request.job_description):
-        raise HTTPException(
-            status_code=400, 
-            detail="Either job_id or (company_name, position, and job_description) are required"
+    try:
+        # Log incoming request data for debugging
+        print(f"DEBUG - Generate Cover Letter Request Parameters:")
+        print(f"  job_id: {job_id}")
+        print(f"  company_name: {company_name}")
+        print(f"  position: {position}")
+        print(f"  job_description length: {len(job_description) if job_description else 0}")
+        print(f"  resume_path: {resume_path}")
+        print(f"  Resume file provided: {resume is not None}")
+        
+        # Check if we have the necessary data
+        if not job_id and (not company_name or not position or not job_description):
+            raise HTTPException(
+                status_code=400, 
+                detail="Either job_id or (company_name, position, and job_description) are required"
+            )
+        
+        # Get job details if job_id is provided
+        if job_id:
+            job = get_job_application(job_id)
+            company_name = job["company_name"]
+            position = job["position"]
+            job_description = job["job_description"]
+            # Use the resume associated with the job if available and no new resume provided
+            if not resume and not resume_path:
+                resume_path = job.get("resume_path")
+        
+        # If a new resume was uploaded, use that
+        if resume:
+            print(f"DEBUG - Processing uploaded resume file: {resume.filename}")
+            resume_path = await save_uploaded_file(resume, RESUME_FOLDER)
+            print(f"DEBUG - Resume saved to: {resume_path}")
+        
+        if not resume_path:
+            raise HTTPException(status_code=400, detail="No resume provided. Please upload a resume.")
+        
+        # Create the cover letter
+        output_path, cover_letter_text = create_cover_letter(
+            job_description, company_name, position, resume_path
         )
-    
-    # Get job details if job_id is provided
-    if request.job_id:
-        job = get_job_application(request.job_id)
-        company_name = job["company_name"]
-        position = job["position"]
-        job_description = job["job_description"]
-        # Use the resume associated with the job if available
-        resume_path = job.get("resume_path")
-    else:
-        company_name = request.company_name
-        position = request.position
-        job_description = request.job_description
-        resume_path = None
-    
-    # If a new resume was uploaded, use that
-    if resume:
-        resume_path = await save_uploaded_file(resume, RESUME_FOLDER)
-    
-    if not resume_path:
-        raise HTTPException(status_code=400, detail="No resume provided. Please upload a resume.")
-    
-    # Create the cover letter
-    output_path, cover_letter_text = create_cover_letter(
-        job_description, company_name, position, resume_path
-    )
-    
-    # If this is for an existing job, update the cover letter path
-    if request.job_id:
-        update_job_application(request.job_id, cover_letter_path=output_path)
-    
-    return {
-        "document_path": output_path,
-        "content_preview": cover_letter_text
-    }
+        
+        # If this is for an existing job, update the cover letter path
+        if job_id:
+            update_job_application(job_id, cover_letter_path=output_path)
+        
+        return {
+            "document_path": output_path,
+            "content_preview": cover_letter_text
+        }
+    except Exception as e:
+        print(f"ERROR - Exception in generate_cover_letter: {str(e)}")
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Error generating cover letter: {str(e)}")
 
 @app.get("/api/cover-letters/{filename}")
 async def download_cover_letter(filename: str):

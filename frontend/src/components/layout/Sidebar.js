@@ -17,7 +17,8 @@ import {
     WorkOutline as JobsIcon,
     Add as AddIcon,
     Description as ResumeIcon,
-    Mail as MailIcon
+    Mail as MailIcon,
+    Settings as SettingsIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -36,6 +37,7 @@ const Sidebar = ({ drawerOpen, toggleDrawer }) => {
         { text: 'Add Application', icon: <AddIcon />, path: '/applications/add' },
         { text: 'Resume Builder', icon: <ResumeIcon />, path: '/resume-builder' },
         { text: 'Cover Letter', icon: <MailIcon />, path: '/cover-letter' },
+        { text: 'AI Settings', icon: <SettingsIcon />, path: '/ai-settings' },
     ];
 
     const drawer = (
