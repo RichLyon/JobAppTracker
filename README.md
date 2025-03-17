@@ -11,6 +11,7 @@ The Job Application Tracker allows users to:
 - Generate cover letters tailored to specific jobs
 - Visualize job search progress with dashboard analytics
 - Manage user profile information for documents
+- Configure AI settings with multiple model options
 
 ## Architecture
 
@@ -27,14 +28,17 @@ This application uses a modern React frontend with a FastAPI backend architectur
 - FastAPI for high-performance API endpoints
 - SQLite for database (can be easily scaled to other databases)
 - Python libraries for document handling (python-docx)
-- Integration with Ollama for AI-powered resume customization and cover letter generation
+- Integration with multiple AI providers:
+  - Ollama (local AI, default)
+  - OpenAI (optional)
+  - Anthropic (optional)
 
 ## Project Structure
 
 ```
 ├── backend/               # FastAPI backend
 │   ├── app/               # Application code
-│   │   ├── ai_integration.py   # AI service integration (Ollama)
+│   │   ├── ai_integration.py   # AI service integration
 │   │   ├── database.py    # Database functions
 │   │   ├── document_handlers.py # Resume and cover letter generation
 │   │   ├── file_handler.py # File upload/download helpers
@@ -51,7 +55,9 @@ This application uses a modern React frontend with a FastAPI backend architectur
 │   │   ├── App.js         # Main App component
 │   │   ├── index.js       # Entry point
 │   │   └── theme.js       # Material UI theming
-│   └── package.json       # JavaScript dependencies
+├── llm_config.yaml        # AI model configuration
+├── .env                   # Environment variables for API keys
+├── start-app.bat          # Windows startup script
 ├── resumes/               # Directory for stored resumes
 ├── cover_letters/         # Directory for generated cover letters
 └── README.md              # Project documentation
@@ -63,36 +69,40 @@ This application uses a modern React frontend with a FastAPI backend architectur
 
 - Node.js (v14+)
 - Python (v3.8+)
-- Ollama (optional, for AI features)
+- One of the following AI providers:
+  - Ollama (recommended, free local option)
+  - OpenAI API key (optional)
+  - Anthropic API key (optional)
 
 ### Installation
 
-#### Backend Setup
+#### 1. Clone the repository
 
-1. Navigate to the backend directory:
+```
+git clone https://github.com/yourusername/job-application-tracker.git
+cd job-application-tracker
+```
+
+#### 2. Backend Setup
+
+1. Create and activate a virtual environment:
    ```
    cd backend
-   ```
-
-2. Create and activate a virtual environment (recommended):
-   ```
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   
+   # On Windows:
+   venv\Scripts\activate
+   
+   # On macOS/Linux:
+   source venv/bin/activate
    ```
 
-3. Install dependencies:
+2. Install dependencies:
    ```
    pip install -r requirements.txt
    ```
 
-4. Run the FastAPI server:
-   ```
-   uvicorn app.main:app --reload
-   ```
-
-The backend will start on http://localhost:8000 with API documentation available at http://localhost:8000/docs
-
-#### Frontend Setup
+#### 3. Frontend Setup
 
 1. Navigate to the frontend directory:
    ```
@@ -104,12 +114,78 @@ The backend will start on http://localhost:8000 with API documentation available
    npm install
    ```
 
-3. Start the development server:
+#### 4. AI Provider Setup
+
+##### Option A: Ollama (Recommended)
+
+1. Download and install Ollama from [ollama.ai](https://ollama.ai)
+2. After installation, pull the default model:
    ```
-   npm start
+   ollama pull qwen2.5:14b
+   ```
+   (You can configure different models in llm_config.yaml)
+
+##### Option B: OpenAI or Anthropic
+
+1. Copy the .env.example file to .env:
+   ```
+   cp .env.example .env
+   ```
+   
+2. Edit the .env file and add your API key(s):
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
    ```
 
-The React app will start on http://localhost:3000
+3. You can also configure which model to use in the llm_config.yaml file
+
+#### 5. Starting the Application
+
+The easiest way to start the application is using the provided batch script (Windows):
+
+```
+start-app.bat
+```
+
+This will start both the frontend and backend servers in separate windows.
+
+Alternatively, you can start them manually:
+
+**Backend:**
+```
+cd backend
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+uvicorn app.main:app --reload
+```
+
+**Frontend:**
+```
+cd frontend
+npm start
+```
+
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+
+## AI Configuration
+
+The application supports multiple AI providers which can be configured through the UI or by editing the llm_config.yaml file:
+
+```yaml
+# Default providers and models
+default_provider: "ollama"
+
+# Models for each provider
+models:
+  ollama: "qwen2.5:14b"
+  openai: "gpt-4o"
+  anthropic: "claude-3-5-sonnet-latest"
+```
+
+You can switch between providers in the AI Settings page of the application.
 
 ## API Endpoints
 
@@ -120,6 +196,7 @@ The application exposes the following key API endpoints:
 - `GET/POST/PUT/DELETE /api/applications` - Manage job applications
 - `POST /api/resumes/customize` - Customize a resume for a job
 - `POST /api/cover-letters/generate` - Generate a cover letter
+- `GET/POST /api/ai/settings` - Get or update AI settings
 
 ## Refactoring from Gradio to React
 
@@ -130,14 +207,6 @@ This application was originally built using Gradio, a Python library for creatin
 3. **Better State Management**: More sophisticated state management with React hooks and React Query
 4. **Scalability**: Separated frontend and backend architecture allows for independent scaling
 5. **Maintainability**: Better code organization with component-based architecture
-
-The refactoring involved:
-
-1. Creating a FastAPI backend with endpoints corresponding to the original Gradio functionality
-2. Developing a React frontend with Material UI for a more polished interface
-3. Implementing client-side routing for better navigation
-4. Adding data visualization for analytics on the dashboard
-5. Enhancing the resume and cover letter generation features
 
 ## License
 

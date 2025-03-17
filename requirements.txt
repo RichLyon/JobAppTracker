@@ -1,0 +1,20 @@
+# FastAPI framework and dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.23.2
+python-multipart==0.0.6
+
+# Document handling
+python-docx==0.8.11
+
+# API and HTTP
+requests==2.31.0
+
+# Configuration
+pyyaml==6.0.1
+python-dotenv==1.0.0
+
+# AI/LLM Integration
+litellm==1.10.0
+
+# For potential future use cases
+aiofiles==23.2.1
