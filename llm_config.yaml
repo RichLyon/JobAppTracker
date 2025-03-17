@@ -1,7 +1,7 @@
 # LLM Model Configuration
 
 # Default providers and models
-default_provider: "ollama"
+default_provider: "OpenAI"
 
 # Models for each provider
 models:
