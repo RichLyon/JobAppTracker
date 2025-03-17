@@ -250,7 +250,7 @@ const AddApplication = () => {
                                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                                     <DatePicker
                                         label="Date Applied"
-                                        value={new Date(formValues.date_applied)}
+                                        value={new Date(`${formValues.date_applied}T00:00:00`)}
                                         onChange={handleDateChange}
                                         renderInput={(params) => (
                                             <TextField

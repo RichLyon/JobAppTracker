@@ -42,6 +42,7 @@ def setup_database():
             application_url TEXT,
             notes TEXT,
             resume_path TEXT,
+            uploaded_resume_path TEXT,
             cover_letter_path TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -61,11 +62,25 @@ def setup_database():
         )
         ''')
         
+        # Check if uploaded_resume_path column exists and add it if not
+        try:
+            # This query will fail if the column doesn't exist
+            cursor.execute('''SELECT uploaded_resume_path FROM job_applications LIMIT 1''')
+        except sqlite3.OperationalError as e:
+            if "no such column: uploaded_resume_path" in str(e):
+                print("Adding uploaded_resume_path column to job_applications table...")
+                # Add the missing column to the existing table
+                cursor.execute('''
+                ALTER TABLE job_applications 
+                ADD COLUMN uploaded_resume_path TEXT
+                ''')
+                print("Column added successfully")
+        
         conn.commit()
 
 def add_job_application(company_name, position, date_applied, job_description, status, 
                        salary_info=None, contact_info=None, application_url=None, notes=None,
-                       resume_path=None, cover_letter_path=None):
+                       resume_path=None, cover_letter_path=None, uploaded_resume_path=None):
     """Add a new job application to the database"""
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -76,12 +91,12 @@ def add_job_application(company_name, position, date_applied, job_description, s
         INSERT INTO job_applications (
             company_name, position, date_applied, job_description, status,
             salary_info, contact_info, application_url, notes,
-            resume_path, cover_letter_path, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            resume_path, uploaded_resume_path, cover_letter_path, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             company_name, position, date_applied, job_description, status,
             salary_info, contact_info, application_url, notes,
-            resume_path, cover_letter_path, now, now
+            resume_path, uploaded_resume_path, cover_letter_path, now, now
         ))
         
         job_id = cursor.lastrowid

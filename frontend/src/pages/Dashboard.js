@@ -72,10 +72,16 @@ const preparePieChartData = (statusCounts) => {
 // Convert data for bar chart
 const prepareBarChartData = (applicationsByMonth) => {
     return Object.entries(applicationsByMonth)
-        .map(([month, count]) => ({
-            month: format(new Date(month + '-01'), 'MMM yyyy'),
-            applications: count,
-        }))
+        .map(([month, count]) => {
+            // Fix the month display issue by correctly parsing the date
+            // The format YYYY-MM comes from the backend's month = app["date_applied"][:7]
+            const [year, monthNum] = month.split('-');
+            const date = new Date(year, parseInt(monthNum) - 1, 1); // Month is 0-indexed in JS Date
+            return {
+                month: format(date, 'MMM yyyy'),
+                applications: count,
+            };
+        })
         .sort((a, b) => new Date(a.month) - new Date(b.month))
         .slice(-6); // Show last 6 months
 };

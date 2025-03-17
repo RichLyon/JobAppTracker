@@ -150,7 +150,7 @@ const JobApplications = () => {
             minWidth: 120,
             renderCell: (params) => (
                 <Typography variant="body2">
-                    {params.value ? format(new Date(params.value), 'MMM d, yyyy') : ''}
+                    {params.value ? format(new Date(`${params.value}T00:00:00`), 'MMM d, yyyy') : ''}
                 </Typography>
             ),
         },

@@ -92,8 +92,15 @@ export const createApplication = async (applicationData) => {
 };
 
 export const updateApplication = async (id, applicationData) => {
-    const response = await api.put(`/applications/${id}`, applicationData);
-    return response.data;
+    console.log(`Updating application ${id} with data:`, applicationData);
+    try {
+        const response = await api.put(`/applications/${id}`, applicationData);
+        console.log('Update application response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error in updateApplication:', error.response?.data || error.message);
+        throw error;
+    }
 };
 
 export const deleteApplication = async (id) => {

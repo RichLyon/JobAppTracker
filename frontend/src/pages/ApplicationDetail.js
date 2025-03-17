@@ -195,12 +195,13 @@ const ApplicationDetail = () => {
         uploadResume,
         {
             onSuccess: (data) => {
-                updateMutation.mutate({
-                    ...formValues,
-                    resume_path: data.path
-                });
+                console.log('Resume upload successful, response:', data);
+                // We don't call updateMutation.mutate here anymore
+                // This is now handled directly in the handleSave function
+                // which awaits the resumeUploadMutation.mutateAsync result
             },
             onError: (error) => {
+                console.error('Resume upload error:', error);
                 setNotification({
                     open: true,
                     message: `Error uploading resume: ${error.message}`,
@@ -227,13 +228,24 @@ const ApplicationDetail = () => {
     // Handle date change
     const handleDateChange = (date) => {
         try {
+            console.log('DatePicker value changed:', date);
+            if (!date) {
+                console.warn('DatePicker received null or undefined value');
+                return;
+            }
             const formattedDate = format(date, 'yyyy-MM-dd');
+            console.log('Formatted date:', formattedDate);
             setFormValues({
                 ...formValues,
                 date_applied: formattedDate
             });
         } catch (error) {
             console.error('Date format error:', error);
+            setNotification({
+                open: true,
+                message: `Error formatting date: ${error.message}`,
+                severity: 'error'
+            });
         }
     };
 
@@ -248,12 +260,81 @@ const ApplicationDetail = () => {
 
     // Handle save changes
     const handleSave = async () => {
-        // If a new resume was uploaded, upload it first
-        if (resumeFile) {
-            await resumeUploadMutation.mutateAsync(resumeFile);
-        } else {
-            // Otherwise, just update the application with current values
-            updateMutation.mutate(formValues);
+        try {
+            console.log("Save button clicked. Current form values:", formValues);
+            console.log("Current editing state:", isEditing);
+
+            // Force edit mode to stay true until we're done processing
+            // This prevents UI issues if state changes during processing
+            setIsEditing(true);
+
+            // Use a variable to track if we're doing an update
+            let valuesToUpdate;
+
+            // If a new resume was uploaded, upload it first
+            if (resumeFile) {
+                console.log("Uploading new resume file...");
+                const uploadResult = await resumeUploadMutation.mutateAsync(resumeFile);
+                console.log("Resume upload complete, result:", uploadResult);
+
+                // Update the application with the new resume path and other form values
+                valuesToUpdate = {
+                    ...formValues,
+                    resume_path: uploadResult.path
+                };
+            } else {
+                // Otherwise, just update the application with current values
+                valuesToUpdate = { ...formValues };
+            }
+
+            console.log("About to call updateMutation.mutateAsync with values:", valuesToUpdate);
+            console.log("API endpoint will be:", `/applications/${id}`);
+
+            // Directly invoke the mutation and wait for it to complete
+            const result = await updateMutation.mutateAsync(valuesToUpdate);
+
+            console.log("Save operation completed successfully, result:", result);
+
+            // Update form values with the latest data to ensure UI consistency
+            setFormValues({
+                company_name: result.company_name || '',
+                position: result.position || '',
+                date_applied: result.date_applied || '',
+                status: result.status || '',
+                job_description: result.job_description || '',
+                salary_info: result.salary_info || '',
+                contact_info: result.contact_info || '',
+                application_url: result.application_url || '',
+                notes: result.notes || '',
+                uploaded_resume_path: result.uploaded_resume_path || '',
+            });
+
+            // Now that all operations are complete, exit edit mode
+            setTimeout(() => {
+                setIsEditing(false);
+
+                // Show success notification
+                setNotification({
+                    open: true,
+                    message: 'Application updated successfully',
+                    severity: 'success'
+                });
+
+                console.log("Exited edit mode, update complete");
+            }, 500); // Small delay to ensure state updates have propagated
+        } catch (error) {
+            console.error("Error saving changes:", error);
+            // Log detailed error information
+            if (error.response) {
+                console.error("Error response data:", error.response.data);
+                console.error("Error response status:", error.response.status);
+            }
+
+            setNotification({
+                open: true,
+                message: `Error saving changes: ${error.message}`,
+                severity: 'error'
+            });
         }
     };
 
@@ -388,7 +469,7 @@ const ApplicationDetail = () => {
                             }}
                         />
                         <Typography variant="body2" color="text.secondary">
-                            Applied: {application?.date_applied ? format(new Date(application.date_applied), 'MMMM d, yyyy') : 'N/A'}
+                            Applied: {application?.date_applied ? format(new Date(`${application.date_applied}T00:00:00`), 'MMMM d, yyyy') : 'N/A'}
                         </Typography>
                     </Box>
                 </Box>
@@ -491,16 +572,15 @@ const ApplicationDetail = () => {
                                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                                     <DatePicker
                                         label="Date Applied"
-                                        value={formValues.date_applied ? new Date(formValues.date_applied) : null}
+                                        value={formValues.date_applied ? new Date(`${formValues.date_applied}T00:00:00`) : null}
                                         onChange={handleDateChange}
                                         disabled={!isEditing}
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                fullWidth
-                                                required
-                                            />
-                                        )}
+                                        slotProps={{
+                                            textField: {
+                                                fullWidth: true,
+                                                required: true
+                                            }
+                                        }}
                                     />
                                 </LocalizationProvider>
                             </Grid>

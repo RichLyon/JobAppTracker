@@ -152,6 +152,8 @@ async def create_job_application(application: JobApplicationCreate):
         contact_info=application.contact_info,
         application_url=application.application_url,
         notes=application.notes,
+        resume_path=None,
+        cover_letter_path=None,
         uploaded_resume_path=application.uploaded_resume_path
     )
     return get_job_application(job_id)

@@ -144,7 +144,7 @@ def check_openai_availability():
         
         # Use litellm to test the connection with a minimal prompt
         litellm.completion(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": "test"}],
             max_tokens=10
         )
@@ -174,7 +174,7 @@ def check_anthropic_availability():
         
         # Use litellm to test the connection with a minimal prompt
         litellm.completion(
-            model="anthropic/claude-3-haiku-20240307",
+            model="anthropic/claude-3-5-haiku-latest",
             messages=[{"role": "user", "content": "test"}],
             max_tokens=10
         )
@@ -346,7 +346,7 @@ def generate_resume_suggestions(job_description: str) -> str:
     Job Description:
     {job_description}
     
-    Instead of just suggestions, I need you to help me create a completely tailored resume. 
+    I need you to help me create a completely tailored resume. 
     Please provide comprehensive guidance on:
     
     1. A professional summary section that showcases my fit for this role
