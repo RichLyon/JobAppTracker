@@ -14,7 +14,7 @@ COVER_LETTER_FOLDER = "cover_letters"
 
 def create_custom_resume(base_resume_path, job_description, company_name=None, position=None, output_path=None):
     """
-    Create a customized resume based on job description using AI suggestions
+    Create a fully customized resume based on job description
     
     Args:
         base_resume_path: Path to the base resume file
@@ -24,12 +24,14 @@ def create_custom_resume(base_resume_path, job_description, company_name=None, p
         output_path: Optional custom output path
         
     Returns:
-        tuple: (output_path, tailoring_suggestions)
+        tuple: (output_path, customization_details)
     """
     # Debug output
     print(f"DEBUG - create_custom_resume called with:")
     print(f"  base_resume_path: {base_resume_path}")
     print(f"  job_description length: {len(job_description) if job_description else 0}")
+    print(f"  company_name: {company_name}")
+    print(f"  position: {position}")
     print(f"  output_path: {output_path}")
     print(f"  File exists: {os.path.exists(base_resume_path)}")
     
@@ -44,26 +46,17 @@ def create_custom_resume(base_resume_path, job_description, company_name=None, p
     if not os.path.exists(base_resume_path):
         raise HTTPException(status_code=404, detail=f"Resume file not found at path: {base_resume_path}")
     
-    # Generate tailoring suggestions using Ollama
-    tailoring_suggestions = generate_resume_suggestions(job_description)
+    # Get the resume content
+    base_resume_text = get_document_text(base_resume_path)
+    
+    # Generate comprehensive resume customization suggestions
+    customization_details = generate_resume_suggestions(job_description)
     
     try:
-        # Load the base resume
+        # Start with a fresh document
         doc = Document(base_resume_path)
         
-        # Add tailoring suggestions at the end
-        # Check if the style exists in the document
-        try:
-            doc.add_heading("Tailoring Suggestions", level=1)
-        except KeyError:
-            # If the style doesn't exist, use a paragraph with manual formatting
-            p = doc.add_paragraph("Tailoring Suggestions")
-            p.runs[0].bold = True
-            p.runs[0].font.size = Pt(16)  # Approximate size for Heading 1
-        
-        doc.add_paragraph(tailoring_suggestions)
-        
-        # Save the customized resume
+        # Save the customized resume with the new naming format
         if not output_path:
             # Create a formatted filename
             if company_name and position:
@@ -74,8 +67,8 @@ def create_custom_resume(base_resume_path, job_description, company_name=None, p
                 clean_company = company_name.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-')
                 clean_position = position.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-')
                 
-                # Create filename with em dash separators
-                filename = f"{clean_company}—{clean_position}—Resume—{today_formatted}.docx"
+                # Create filename with hyphen separators instead of em dashes
+                filename = f"{clean_company}-{clean_position}-{today_formatted}.docx"
             else:
                 # Use timestamp based naming if company/position not provided
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -87,7 +80,7 @@ def create_custom_resume(base_resume_path, job_description, company_name=None, p
             os.makedirs(RESUME_FOLDER, exist_ok=True)
         
         doc.save(output_path)
-        return output_path, tailoring_suggestions
+        return output_path, customization_details
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating custom resume: {str(e)}")

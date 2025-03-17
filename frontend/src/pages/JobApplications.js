@@ -15,9 +15,6 @@ import {
     InputAdornment,
     LinearProgress,
     Alert,
-    Select,
-    FormControl,
-    InputLabel,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -32,7 +29,6 @@ import {
     Edit as EditIcon,
     Delete as DeleteIcon,
     Visibility as ViewIcon,
-    Sort as SortIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';

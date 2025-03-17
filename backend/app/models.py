@@ -23,6 +23,7 @@ class JobApplicationBase(BaseModel):
     contact_info: Optional[str] = None
     application_url: Optional[str] = None
     notes: Optional[str] = None
+    uploaded_resume_path: Optional[str] = None
 
 # Request Models
 class UserCreate(UserBase):
@@ -42,6 +43,7 @@ class JobApplicationUpdate(BaseModel):
     application_url: Optional[str] = None
     notes: Optional[str] = None
     resume_path: Optional[str] = None
+    uploaded_resume_path: Optional[str] = None
     cover_letter_path: Optional[str] = None
 
 # Response Models

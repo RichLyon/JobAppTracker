@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation } from 'react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -18,7 +18,6 @@ import {
     Link,
 } from '@mui/material';
 import {
-    Description as DescriptionIcon,
     Download as DownloadIcon,
     Upload as UploadIcon,
     ArrowBack as ArrowBackIcon,
@@ -59,8 +58,7 @@ const CoverLetterGenerator = () => {
 
     // Fetch job application data if job_id is provided
     const {
-        data: application,
-        isLoading: isLoadingApplication
+        data: application
     } = useQuery(
         ['application', jobId],
         () => getApplication(jobId),
@@ -80,17 +78,6 @@ const CoverLetterGenerator = () => {
             }
         }
     );
-
-    // Resume upload mutation
-    const resumeUploadMutation = useMutation(uploadResume, {
-        onError: (error) => {
-            setNotification({
-                open: true,
-                message: `Error uploading resume: ${error.message}`,
-                severity: 'error'
-            });
-        }
-    });
 
     // Cover letter generation mutation
     const generateMutation = useMutation(generateCoverLetter, {

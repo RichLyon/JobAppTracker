@@ -127,6 +127,34 @@ export const getDocumentUrl = (type, filename) => {
     return `${api.defaults.baseURL}/${type}/${encodeURIComponent(filename)}`;
 };
 
+// Resume operations
+export const getResumes = async () => {
+    try {
+        const response = await api.get('/resumes');
+        return response.data.resumes;
+    } catch (error) {
+        console.error('Error fetching resumes:', error);
+        throw error;
+    }
+};
+
+// Delete a resume by filename
+export const deleteResume = async (filename) => {
+    try {
+        const response = await api.delete(`/resumes/${filename}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error deleting resume:', error);
+        throw error;
+    }
+};
+
+// Get resume filename from path for display
+export const getResumeFilenameFromPath = (path) => {
+    if (!path) return null;
+    return path.split('/').pop();
+};
+
 // Resume customization
 export const customizeResume = async ({ data, file }) => {
     try {
@@ -207,7 +235,8 @@ export const generateCoverLetter = async ({ data, file }) => {
     }
 };
 
-export default {
+// Create an object with all exported functions
+const apiService = {
     checkApiHealth,
     checkOllamaStatus,
     getLLMSettings,
@@ -223,6 +252,9 @@ export default {
     getApplicationStatistics,
     uploadResume,
     getDocumentUrl,
+    getResumes,
     customizeResume,
     generateCoverLetter,
 };
+
+export default apiService;

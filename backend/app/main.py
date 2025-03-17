@@ -151,7 +151,8 @@ async def create_job_application(application: JobApplicationCreate):
         salary_info=application.salary_info,
         contact_info=application.contact_info,
         application_url=application.application_url,
-        notes=application.notes
+        notes=application.notes,
+        uploaded_resume_path=application.uploaded_resume_path
     )
     return get_job_application(job_id)
 
@@ -246,6 +247,29 @@ async def get_application_statistics():
     }
 
 # Resume Endpoints
+@app.get("/api/resumes")
+async def list_resumes():
+    """List all available resumes"""
+    if not os.path.exists(RESUME_FOLDER):
+        os.makedirs(RESUME_FOLDER, exist_ok=True)
+        return {"resumes": []}
+    
+    resumes = []
+    for filename in os.listdir(RESUME_FOLDER):
+        if filename.endswith(".docx"):
+            filepath = os.path.join(RESUME_FOLDER, filename)
+            # Get file creation/modification time for sorting
+            file_stats = os.stat(filepath)
+            resumes.append({
+                "filename": filename,
+                "path": filepath,
+                "created_at": datetime.datetime.fromtimestamp(file_stats.st_ctime).isoformat()
+            })
+    
+    # Sort by creation time, newest first
+    resumes.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"resumes": resumes}
+
 @app.post("/api/resumes/upload")
 async def upload_resume(resume: UploadFile = File(...)):
     """Upload a resume file"""
@@ -324,6 +348,19 @@ async def download_resume(filename: str):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Resume not found")
     return FileResponse(file_path, filename=filename)
+
+@app.delete("/api/resumes/{filename}")
+async def delete_resume(filename: str):
+    """Delete a resume file"""
+    file_path = os.path.join(RESUME_FOLDER, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    try:
+        os.remove(file_path)
+        return {"message": f"Resume {filename} deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting resume: {str(e)}")
 
 # Cover Letter Endpoints
 @app.post("/api/cover-letters/generate", response_model=DocumentResponse)

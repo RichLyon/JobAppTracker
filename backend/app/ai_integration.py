@@ -97,9 +97,15 @@ class LLMSettings:
             "provider": self.provider,
             "models": self.models,
             "api_keys": {
-                # Mask API keys for security
-                "openai": bool(self.api_keys["openai"]),
-                "anthropic": bool(self.api_keys["anthropic"])
+                # Send masked keys if they exist, otherwise indicate their presence with a boolean
+                "openai": {
+                    "exists": bool(self.api_keys["openai"]),
+                    "value": self.api_keys["openai"] if bool(self.api_keys["openai"]) else ""
+                },
+                "anthropic": {
+                    "exists": bool(self.api_keys["anthropic"]),
+                    "value": self.api_keys["anthropic"] if bool(self.api_keys["anthropic"]) else ""
+                }
             }
         }
 
@@ -326,28 +332,36 @@ def generate_text(prompt):
 
 def generate_resume_suggestions(job_description: str) -> str:
     """
-    Generate resume tailoring suggestions based on a job description
+    Generate fully customized resume content based on a job description
     
     Args:
         job_description: The job description to analyze
         
     Returns:
-        str: Tailoring suggestions for the resume
+        str: Full resume customization suggestions
     """
     prompt = f"""
-    I have a job description and need to customize my resume for it.
+    I need to fully customize my resume for this job description.
     
     Job Description:
     {job_description}
     
-    Please analyze this job description and provide specific suggestions on how I should tailor my resume.
-    Focus on:
-    1. Skills to emphasize
-    2. Experience to highlight
-    3. Achievements that would be most relevant
-    4. Keywords to include
+    Instead of just suggestions, I need you to help me create a completely tailored resume. 
+    Please provide comprehensive guidance on:
     
-    Format your response as specific, actionable bullet points I can use to modify my resume.
+    1. A professional summary section that showcases my fit for this role
+    2. Key skills that should be prominently featured (based on the job description)
+    3. How to rewrite work experience bullet points to align with this job
+    4. Achievements to emphasize that demonstrate value for this specific position
+    5. Technical skills and qualifications to highlight
+    6. Any education or certifications that would be particularly relevant
+    
+    For each section, please provide detailed, specific content examples that I can directly 
+    use in my resume. Tailor everything specifically to match the keywords and requirements 
+    in this job description.
+    
+    Assume I have the necessary background for this role. The goal is to create a highly 
+    targeted resume that will get past ATS systems and impress hiring managers.
     """
     
     return generate_text(prompt)

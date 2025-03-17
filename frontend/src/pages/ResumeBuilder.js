@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation } from 'react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -16,6 +16,10 @@ import {
     Paper,
     Breadcrumbs,
     Link,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import {
     Description as DescriptionIcon,
@@ -27,7 +31,8 @@ import {
     getApplication,
     customizeResume,
     uploadResume,
-    getDocumentUrl
+    getDocumentUrl,
+    getResumes
 } from '../services/apiService';
 
 const ResumeBuilder = () => {
@@ -35,6 +40,7 @@ const ResumeBuilder = () => {
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const jobId = queryParams.get('job_id');
+    const queryClient = useQueryClient();
 
     // State for form values
     const [jobDescription, setJobDescription] = useState('');
@@ -44,6 +50,7 @@ const ResumeBuilder = () => {
     // File upload state
     const [resumeFile, setResumeFile] = useState(null);
     const [resumeFileName, setResumeFileName] = useState('');
+    const [selectedResumePath, setSelectedResumePath] = useState('');
 
     // Results state
     const [customizedResumePath, setCustomizedResumePath] = useState('');
@@ -58,8 +65,7 @@ const ResumeBuilder = () => {
 
     // Fetch job application data if job_id is provided
     const {
-        data: application,
-        isLoading: isLoadingApplication
+        data: application
     } = useQuery(
         ['application', jobId],
         () => getApplication(jobId),
@@ -75,19 +81,20 @@ const ResumeBuilder = () => {
                 if (data.resume_path) {
                     const filename = data.resume_path.split('/').pop();
                     setResumeFileName(filename);
+                    setSelectedResumePath(data.resume_path);
                 }
             }
         }
     );
 
-    // Resume upload mutation
-    const resumeUploadMutation = useMutation(uploadResume, {
-        onError: (error) => {
-            setNotification({
-                open: true,
-                message: `Error uploading resume: ${error.message}`,
-                severity: 'error'
-            });
+    // Fetch available resumes
+    const {
+        data: availableResumes = [],
+        isLoading: isLoadingResumes,
+        error: resumesError
+    } = useQuery(['resumes'], getResumes, {
+        onSuccess: (data) => {
+            console.log('Available resumes:', data);
         }
     });
 
@@ -117,6 +124,21 @@ const ResumeBuilder = () => {
         if (file) {
             setResumeFile(file);
             setResumeFileName(file.name);
+            setSelectedResumePath('');  // Clear selected resume when uploading new one
+        }
+    };
+
+    // Handle resume selection from dropdown
+    const handleResumeSelection = (e) => {
+        const path = e.target.value;
+        if (path) {
+            setSelectedResumePath(path);
+            const filename = path.split('/').pop();
+            setResumeFileName(filename);
+            setResumeFile(null);  // Clear uploaded file when selecting from dropdown
+        } else {
+            setSelectedResumePath('');
+            setResumeFileName('');
         }
     };
 
@@ -136,6 +158,8 @@ const ResumeBuilder = () => {
         // Prepare request data
         const requestData = {
             job_description: jobDescription,
+            company_name: companyName,
+            position: position
         };
 
         // If jobId is provided, use that
@@ -161,13 +185,20 @@ const ResumeBuilder = () => {
                     file: resumeFile
                 });
             }
-            // Otherwise try to use existing resume if available
-            else if (application?.resume_path || resumeFileName) {
+            // If a resume was selected from the dropdown
+            else if (selectedResumePath) {
+                console.log('Using selected resume path:', selectedResumePath);
+                // Add the resume path to the request data
+                requestData.resume_path = selectedResumePath;
+                await customizeMutation.mutateAsync({
+                    data: requestData
+                });
+            }
+            // Otherwise try to use existing resume if available from application
+            else if (application?.resume_path) {
                 console.log('Using existing resume path from application');
-                if (application?.resume_path) {
-                    // Add the resume path to the request data
-                    requestData.resume_path = application.resume_path;
-                }
+                // Add the resume path to the request data
+                requestData.resume_path = application.resume_path;
                 await customizeMutation.mutateAsync({
                     data: requestData
                 });
@@ -177,7 +208,7 @@ const ResumeBuilder = () => {
                 console.log('No resume available');
                 setNotification({
                     open: true,
-                    message: 'Please upload a resume',
+                    message: 'Please upload or select a resume',
                     severity: 'error'
                 });
             }
@@ -263,9 +294,34 @@ const ResumeBuilder = () => {
                                 <Divider sx={{ mb: 2 }} />
 
                                 <Grid container spacing={2}>
+                                    {/* Resume selection dropdown */}
+                                    <Grid item xs={12}>
+                                        <FormControl fullWidth sx={{ mb: 2 }}>
+                                            <InputLabel id="resume-select-label">Select Resume</InputLabel>
+                                            <Select
+                                                labelId="resume-select-label"
+                                                id="resume-select"
+                                                value={selectedResumePath}
+                                                onChange={handleResumeSelection}
+                                                label="Select Resume"
+                                                disabled={isLoadingResumes}
+                                            >
+                                                <MenuItem value=""><em>None</em></MenuItem>
+                                                {availableResumes.map((resume) => (
+                                                    <MenuItem key={resume.path} value={resume.path}>
+                                                        {resume.filename}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+
                                     {/* Resume upload */}
                                     <Grid item xs={12}>
                                         <Box sx={{ mb: 2 }}>
+                                            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                                                Or upload a new resume:
+                                            </Typography>
                                             <input
                                                 accept=".docx"
                                                 style={{ display: 'none' }}
@@ -286,11 +342,35 @@ const ResumeBuilder = () => {
                                             {resumeFileName && (
                                                 <Box sx={{ mt: 1 }}>
                                                     <Typography variant="body2" color="textSecondary">
-                                                        Selected resume: {resumeFileName}
+                                                        {resumeFile ? "New resume to upload" : "Selected resume"}: {resumeFileName}
                                                     </Typography>
                                                 </Box>
                                             )}
                                         </Box>
+                                    </Grid>
+
+                                    {/* Company Name */}
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Company Name"
+                                            value={companyName}
+                                            onChange={(e) => setCompanyName(e.target.value)}
+                                            placeholder="Enter the company name"
+                                            sx={{ mb: 2 }}
+                                        />
+                                    </Grid>
+
+                                    {/* Job Title */}
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Job Title"
+                                            value={position}
+                                            onChange={(e) => setPosition(e.target.value)}
+                                            placeholder="Enter the job title/position"
+                                            sx={{ mb: 2 }}
+                                        />
                                     </Grid>
 
                                     {/* Job description */}

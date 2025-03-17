@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
@@ -19,12 +19,15 @@ import {
     Breadcrumbs,
     Link,
     Chip,
-    IconButton,
     Dialog,
     DialogActions,
     DialogContent,
     DialogContentText,
     DialogTitle,
+    FormControl,
+    InputLabel,
+    Select,
+    FormHelperText
 } from '@mui/material';
 import {
     Edit as EditIcon,
@@ -37,12 +40,14 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import {
     getApplication,
     updateApplication,
     deleteApplication,
-    uploadResume
+    uploadResume,
+    getResumes,
+    getResumeFilenameFromPath
 } from '../services/apiService';
 
 // Application status options
@@ -87,11 +92,15 @@ const ApplicationDetail = () => {
         contact_info: '',
         application_url: '',
         notes: '',
+        uploaded_resume_path: '',
     });
 
     // File upload state
     const [resumeFile, setResumeFile] = useState(null);
     const [resumeFileName, setResumeFileName] = useState('');
+
+    // Fetch available resumes
+    const { data: resumes, isLoading: loadingResumes } = useQuery('userResumes', getResumes);
 
     // Delete dialog state
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -121,6 +130,7 @@ const ApplicationDetail = () => {
                 contact_info: data.contact_info || '',
                 application_url: data.application_url || '',
                 notes: data.notes || '',
+                uploaded_resume_path: data.uploaded_resume_path || '',
             });
 
             // Set resume filename if exists
@@ -261,6 +271,7 @@ const ApplicationDetail = () => {
                 contact_info: application.contact_info || '',
                 application_url: application.application_url || '',
                 notes: application.notes || '',
+                uploaded_resume_path: application.uploaded_resume_path || '',
             });
 
             // Reset resume file
@@ -599,35 +610,86 @@ const ApplicationDetail = () => {
                                 <Divider sx={{ mb: 3 }} />
 
                                 {isEditing ? (
-                                    <Box sx={{ mb: 3 }}>
-                                        <input
-                                            accept=".docx"
-                                            style={{ display: 'none' }}
-                                            id="resume-file-input"
-                                            type="file"
-                                            onChange={handleResumeChange}
-                                        />
-                                        <label htmlFor="resume-file-input">
-                                            <Button
-                                                variant="outlined"
-                                                component="span"
-                                                sx={{ mb: 1 }}
+                                    <>
+                                        <Box sx={{ mb: 3 }}>
+                                            <input
+                                                accept=".docx"
+                                                style={{ display: 'none' }}
+                                                id="resume-file-input"
+                                                type="file"
+                                                onChange={handleResumeChange}
+                                            />
+                                            <label htmlFor="resume-file-input">
+                                                <Button
+                                                    variant="outlined"
+                                                    component="span"
+                                                    sx={{ mb: 1 }}
+                                                >
+                                                    Upload New Resume (DOCX)
+                                                </Button>
+                                            </label>
+                                            {resumeFileName && (
+                                                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                                                    Selected file: {resumeFileName}
+                                                </Typography>
+                                            )}
+                                        </Box>
+
+                                        {/* Select from existing resumes */}
+                                        <FormControl fullWidth sx={{ mb: 3 }}>
+                                            <InputLabel id="uploaded-resume-label">Select Existing Resume</InputLabel>
+                                            <Select
+                                                labelId="uploaded-resume-label"
+                                                id="uploaded-resume-select"
+                                                value={formValues.uploaded_resume_path || ''}
+                                                label="Select Existing Resume"
+                                                onChange={(e) => handleInputChange({
+                                                    target: { name: 'uploaded_resume_path', value: e.target.value }
+                                                })}
+                                                disabled={loadingResumes}
                                             >
-                                                Upload Resume (DOCX)
-                                            </Button>
-                                        </label>
-                                        {resumeFileName && (
-                                            <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                                                Selected file: {resumeFileName}
-                                            </Typography>
-                                        )}
-                                    </Box>
+                                                <MenuItem value="">
+                                                    <em>None</em>
+                                                </MenuItem>
+                                                {resumes && resumes.map((resume, index) => (
+                                                    <MenuItem key={index} value={resume.path}>
+                                                        {resume.filename}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                            <FormHelperText>
+                                                Choose which resume you used for this application
+                                            </FormHelperText>
+                                        </FormControl>
+                                    </>
                                 ) : (
                                     <Box>
+                                        {/* Display the uploaded resume information */}
+                                        {application?.uploaded_resume_path ? (
+                                            <Box sx={{ mb: 3 }}>
+                                                <Typography variant="body2" sx={{ mb: 1 }}>
+                                                    Used Resume: {getResumeFilenameFromPath(application.uploaded_resume_path)}
+                                                </Typography>
+                                                <Button
+                                                    variant="outlined"
+                                                    href={`/api/resumes/${getResumeFilenameFromPath(application.uploaded_resume_path)}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    Download Used Resume
+                                                </Button>
+                                            </Box>
+                                        ) : (
+                                            <Alert severity="info" sx={{ mb: 3 }}>
+                                                No uploaded resume associated with this application.
+                                            </Alert>
+                                        )}
+
+                                        {/* Display the AI-customized resume information */}
                                         {application?.resume_path ? (
                                             <Box sx={{ mb: 3 }}>
                                                 <Typography variant="body2" sx={{ mb: 1 }}>
-                                                    Current Resume: {resumeFileName}
+                                                    Customized Resume: {resumeFileName}
                                                 </Typography>
                                                 <Button
                                                     variant="outlined"
@@ -635,12 +697,12 @@ const ApplicationDetail = () => {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                 >
-                                                    Download Resume
+                                                    Download Customized Resume
                                                 </Button>
                                             </Box>
                                         ) : (
                                             <Alert severity="info" sx={{ mb: 3 }}>
-                                                No resume attached to this application.
+                                                No customized resume attached to this application.
                                             </Alert>
                                         )}
                                     </Box>

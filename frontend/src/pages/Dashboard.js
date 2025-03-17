@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
     Box,
     Typography,
     Grid,
     Card,
     CardContent,
-    Divider,
     Paper,
     Table,
     TableBody,
@@ -84,7 +83,7 @@ const prepareBarChartData = (applicationsByMonth) => {
 const Dashboard = () => {
     const navigate = useNavigate();
     // Check if Ollama is available
-    const { data: ollamaStatus, isLoading: ollamaLoading } = useQuery(
+    const { data: ollamaStatus } = useQuery(
         'ollamaStatus',
         checkOllamaStatus,
         { retry: false }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box,
@@ -17,8 +17,6 @@ import {
     MenuItem,
     IconButton,
     InputAdornment,
-    Paper,
-    Chip,
     CircularProgress,
     FormHelperText,
     Breadcrumbs,
@@ -54,7 +52,7 @@ const AISettings = () => {
     const [showOpenaiKey, setShowOpenaiKey] = useState(false);
     const [showAnthropicKey, setShowAnthropicKey] = useState(false);
 
-    // State for availability status
+    // State for availability status - include all possible provider types
     const [availabilityStatus, setAvailabilityStatus] = useState({
         ollama: { checked: false, available: false, error: null },
         openai: { checked: false, available: false, error: null },
@@ -91,8 +89,12 @@ const AISettings = () => {
         'neural-chat',
     ];
 
+    // State to track if keys were loaded from environment
+    const [openaiKeyFromEnv, setOpenaiKeyFromEnv] = useState(false);
+    const [anthropicKeyFromEnv, setAnthropicKeyFromEnv] = useState(false);
+
     // Fetch current LLM settings
-    const { data: settings, isLoading: isLoadingSettings } = useQuery(
+    useQuery(
         'llmSettings',
         getLLMSettings,
         {
@@ -101,7 +103,21 @@ const AISettings = () => {
                 setOpenaiModel(data.models?.openai || 'gpt-3.5-turbo');
                 setAnthropicModel(data.models?.anthropic || 'claude-3-haiku-20240307');
                 setOllamaModel(data.models?.ollama || 'qwen2.5:14b');
-                // We don't get the actual API keys from the backend for security
+
+                // Handle API keys - load from backend if they exist
+                if (data.api_keys?.openai?.exists) {
+                    setOpenaiApiKey(data.api_keys.openai.value);
+                    setOpenaiKeyFromEnv(true);
+                } else {
+                    setOpenaiKeyFromEnv(false);
+                }
+
+                if (data.api_keys?.anthropic?.exists) {
+                    setAnthropicApiKey(data.api_keys.anthropic.value);
+                    setAnthropicKeyFromEnv(true);
+                } else {
+                    setAnthropicKeyFromEnv(false);
+                }
             },
             onError: (error) => {
                 setNotification({
@@ -283,24 +299,24 @@ const AISettings = () => {
                                     <Button
                                         variant="outlined"
                                         onClick={() => checkAvailability(provider)}
-                                        startIcon={availabilityStatus[provider].checked ?
-                                            (availabilityStatus[provider].available ?
+                                        startIcon={availabilityStatus[provider]?.checked ?
+                                            (availabilityStatus[provider]?.available ?
                                                 <CheckCircleIcon color="success" /> :
                                                 <ErrorIcon color="error" />
                                             ) : null}
-                                        color={availabilityStatus[provider].checked ?
-                                            (availabilityStatus[provider].available ? "success" : "error") :
+                                        color={availabilityStatus[provider]?.checked ?
+                                            (availabilityStatus[provider]?.available ? "success" : "error") :
                                             "primary"}
                                         sx={{ mr: 2 }}
                                     >
-                                        {availabilityStatus[provider].checked ?
-                                            (availabilityStatus[provider].available ? "Available" : "Not Available") :
+                                        {availabilityStatus[provider]?.checked ?
+                                            (availabilityStatus[provider]?.available ? "Available" : "Not Available") :
                                             "Check Availability"}
                                     </Button>
 
-                                    {availabilityStatus[provider].checked && !availabilityStatus[provider].available && (
+                                    {availabilityStatus[provider]?.checked && !availabilityStatus[provider]?.available && (
                                         <Typography variant="body2" color="error.main">
-                                            {availabilityStatus[provider].error}
+                                            {availabilityStatus[provider]?.error}
                                         </Typography>
                                     )}
                                 </Box>
@@ -347,6 +363,12 @@ const AISettings = () => {
                                     </Typography>
                                     <Divider sx={{ mb: 2 }} />
 
+                                    {openaiKeyFromEnv && (
+                                        <Alert severity="info" sx={{ mb: 2 }}>
+                                            API key loaded from environment (.env file). You can view or modify it below.
+                                        </Alert>
+                                    )}
+
                                     <TextField
                                         fullWidth
                                         label="OpenAI API Key"
@@ -368,7 +390,9 @@ const AISettings = () => {
                                                 </InputAdornment>
                                             ),
                                         }}
-                                        helperText="Enter your OpenAI API key (starts with 'sk-')"
+                                        helperText={openaiKeyFromEnv
+                                            ? "This key was loaded from your .env file. Changes here won't modify the file."
+                                            : "Enter your OpenAI API key (starts with 'sk-')"}
                                     />
 
                                     <FormControl fullWidth>
@@ -399,6 +423,12 @@ const AISettings = () => {
                                     </Typography>
                                     <Divider sx={{ mb: 2 }} />
 
+                                    {anthropicKeyFromEnv && (
+                                        <Alert severity="info" sx={{ mb: 2 }}>
+                                            API key loaded from environment (.env file). You can view or modify it below.
+                                        </Alert>
+                                    )}
+
                                     <TextField
                                         fullWidth
                                         label="Anthropic API Key"
@@ -420,7 +450,9 @@ const AISettings = () => {
                                                 </InputAdornment>
                                             ),
                                         }}
-                                        helperText="Enter your Anthropic API key (starts with 'sk-ant-')"
+                                        helperText={anthropicKeyFromEnv
+                                            ? "This key was loaded from your .env file. Changes here won't modify the file."
+                                            : "Enter your Anthropic API key (starts with 'sk-ant-')"}
                                     />
 
                                     <FormControl fullWidth>

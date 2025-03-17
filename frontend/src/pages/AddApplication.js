@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMutation } from 'react-query';
+import { useMutation, useQuery } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -15,13 +15,15 @@ import {
     Alert,
     Snackbar,
     CircularProgress,
-    Paper
+    FormControl,
+    InputLabel,
+    Select
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { format } from 'date-fns';
-import { createApplication, uploadResume } from '../services/apiService';
+import { createApplication, uploadResume, getResumes, getResumeFilenameFromPath } from '../services/apiService';
 
 // Application status options
 const statusOptions = [
@@ -47,11 +49,15 @@ const AddApplication = () => {
         contact_info: '',
         application_url: '',
         notes: '',
+        uploaded_resume_path: '',
     });
 
     // File upload state
     const [resumeFile, setResumeFile] = useState(null);
     const [resumeFileName, setResumeFileName] = useState('');
+
+    // Fetch available resumes
+    const { data: resumes, isLoading: loadingResumes } = useQuery('userResumes', getResumes);
 
     // Form validation
     const [errors, setErrors] = useState({});
@@ -179,10 +185,10 @@ const AddApplication = () => {
             }
         }
 
-        // Create application with resume path
+        // Create application with resume paths
         const applicationData = {
             ...formValues,
-            resume_path: resumePath
+            resume_path: resumePath  // This is for the AI-customized resume
         };
 
         createApplicationMutation.mutate(applicationData);
@@ -349,7 +355,7 @@ const AddApplication = () => {
                                             component="span"
                                             sx={{ mb: 1 }}
                                         >
-                                            Upload Resume (DOCX)
+                                            Upload New Resume (DOCX)
                                         </Button>
                                     </label>
                                     {resumeFileName && (
@@ -358,9 +364,37 @@ const AddApplication = () => {
                                         </Typography>
                                     )}
                                     <FormHelperText>
-                                        Upload your resume to associate with this application
+                                        Upload a new resume to use with this application
                                     </FormHelperText>
                                 </Box>
+                            </Grid>
+
+                            <Grid item xs={12} sm={6}>
+                                <FormControl fullWidth>
+                                    <InputLabel id="uploaded-resume-label">Select Existing Resume</InputLabel>
+                                    <Select
+                                        labelId="uploaded-resume-label"
+                                        id="uploaded-resume-select"
+                                        value={formValues.uploaded_resume_path}
+                                        label="Select Existing Resume"
+                                        onChange={(e) => handleInputChange({
+                                            target: { name: 'uploaded_resume_path', value: e.target.value }
+                                        })}
+                                        disabled={loadingResumes}
+                                    >
+                                        <MenuItem value="">
+                                            <em>None</em>
+                                        </MenuItem>
+                                        {resumes && resumes.map((resume, index) => (
+                                            <MenuItem key={index} value={resume.path}>
+                                                {resume.filename}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    <FormHelperText>
+                                        Choose which resume you used for this application
+                                    </FormHelperText>
+                                </FormControl>
                             </Grid>
 
                             <Grid item xs={12}>
